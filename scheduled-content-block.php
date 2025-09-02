@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Scheduled Content Block
  * Description: A simple container block that enables the easy scheduleing of content on WordPress pages or posts.
- * Version: 0.0.1
+ * Version: 0.0.2
  * Requires PHP: 8.2
  * Author: h.b Plugins
  * Author URI: https://hancock.build
@@ -15,34 +15,33 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 define( 'SCB_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SCB_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
+/**
+ * Register the block (metadata) and attach server render callback.
+ */
 add_action( 'init', function() {
-	// Register block from block.json (build-less, editor.js ships unbundled).
 	register_block_type( __DIR__ . '/block', array(
 		'render_callback' => 'scb_render_callback',
 	) );
 } );
 
-// Inline the editor script to avoid HTTP fetch issues (e.g., WAF/404 serving HTML).
+/**
+ * Inline the editor script to avoid HTTP fetch issues (e.g. WAF/404 serving HTML).
+ * We still keep the block.json for styles; this only inlines JS.
+ */
 add_action('enqueue_block_editor_assets', function () {
-    // Ensure required editor globals are present.
-    $deps = array('wp-blocks','wp-element','wp-components','wp-editor','wp-i18n','wp-block-editor');
+	$deps = array('wp-blocks','wp-element','wp-components','wp-editor','wp-i18n','wp-block-editor');
+	wp_register_script('scb-inline-editor', false, $deps, '1.1.0', true);
+	wp_enqueue_script('scb-inline-editor');
 
-    // Register a dummy handle, enqueue it, then inject our JS inline.
-    wp_register_script('scb-inline-editor', false, $deps, '1.0.1', true);
-    wp_enqueue_script('scb-inline-editor');
+	$path = SCB_PLUGIN_DIR . 'block/editor.js';
+	$js = @file_get_contents($path);
 
-    // Read the JS directly from disk to bypass any HTTP layer.
-    $path = SCB_PLUGIN_DIR . 'block/editor.js';
-    $js = @file_get_contents($path);
+	if ($js === false) {
+		$js = "(function(wp){var el=wp.element.createElement,be=wp.blockEditor||wp.editor;var Inner=be.InnerBlocks;wp.blocks.registerBlockType('h-b/scheduled-container',{edit:function(){return el('div',null,'Scheduled Container (inline fallback)');},save:function(){return el(Inner.Content,null);}});})(window.wp);";
+	}
 
-    if ($js === false) {
-        // Fallback minimal registration so the inserter still shows something.
-        $js = "(function(wp){var el=wp.element.createElement,be=wp.blockEditor||wp.editor;var Inner=be.InnerBlocks;wp.blocks.registerBlockType('h-b/scheduled-container',{edit:function(){return el('div',null,'Scheduled Container (inline fallback)');},save:function(){return el(Inner.Content,null);}});})(window.wp);";
-    }
-
-    wp_add_inline_script('scb-inline-editor', $js);
+	wp_add_inline_script('scb-inline-editor', $js);
 });
-
 
 /**
  * Server render callback: decides whether to output inner content based on schedule.
@@ -54,8 +53,8 @@ add_action('enqueue_block_editor_assets', function () {
  */
 function scb_render_callback( $attributes, $content, $block ) {
 	$defaults = array(
-		'start'            => '',   // ISO8601 e.g. 2025-09-02T09:00:00
-		'end'              => '',   // ISO8601
+		'start'            => '',   // ISO8601, preferably UTC with Z
+		'end'              => '',   // ISO8601, preferably UTC with Z
 		'showForAdmins'    => true, // Always show to logged-in admins
 		'showPlaceholder'  => false,// Output a placeholder <div> when hidden
 		'placeholderText'  => '',
@@ -75,9 +74,18 @@ function scb_render_callback( $attributes, $content, $block ) {
 		return scb_wrap_admin_notice_front( $atts, $content );
 	}
 
-	$now_ts    = scb_now_site_ts();
-	$start_ts  = scb_parse_site_ts( $atts['start'] );
-	$end_ts    = scb_parse_site_ts( $atts['end'] );
+	$now     = scb_now_site_ts();
+	$startTs = scb_parse_site_ts( $atts['start'] );
+	$endTs   = scb_parse_site_ts( $atts['end'] );
+
+	$hasStart = ( $atts['start'] !== '' && $startTs !== null );
+	$hasEnd   = ( $atts['end']   !== '' && $endTs   !== null );
+
+	// If user set a value but it failed to parse, play it safe: hide.
+	$invalid = ( $atts['start'] !== '' && $startTs === null ) || ( $atts['end'] !== '' && $endTs === null );
+	if ( $invalid ) {
+		return ! empty( $atts['showPlaceholder'] ) ? '<div class="scb-placeholder" aria-hidden="true">' . esc_html( (string) $atts['placeholderText'] ) . '</div>' : '';
+	}
 
 	// Visibility rules:
 	// - If both empty => always visible
@@ -85,13 +93,14 @@ function scb_render_callback( $attributes, $content, $block ) {
 	// - If end only    => visible when now <= end
 	// - If both        => visible when start <= now <= end
 	$visible = true;
-
-	if ( $atts['start'] !== '' && $atts['end'] !== '' ) {
-		$visible = ( $now_ts >= $start_ts ) && ( $now_ts <= $end_ts );
-	} elseif ( $atts['start'] !== '' ) {
-		$visible = ( $now_ts >= $start_ts );
-	} elseif ( $atts['end'] !== '' ) {
-		$visible = ( $now_ts <= $end_ts );
+	if ( $hasStart && $hasEnd ) {
+		$visible = ( $now >= $startTs ) && ( $now <= $endTs );
+	} elseif ( $hasStart ) {
+		$visible = ( $now >= $startTs );
+	} elseif ( $hasEnd ) {
+		$visible = ( $now <= $endTs );
+	} else {
+		$visible = true; // no schedule set
 	}
 
 	if ( $visible ) {
@@ -108,28 +117,33 @@ function scb_render_callback( $attributes, $content, $block ) {
 }
 
 /**
- * Parse ISO datetime in the site timezone to UNIX timestamp.
- *
- * @param string $iso
- * @return int|null
+ * Return UNIX timestamp for a given ISO string.
+ * - If the string has a timezone (Z or ±HH:MM), parse as an absolute moment.
+ * - If the string has no timezone, interpret in the site timezone.
+ * Returns null if parsing fails.
  */
 function scb_parse_site_ts( $iso ) {
-	if ( ! $iso ) return null;
+	if ( ! is_string( $iso ) || $iso === '' ) return null;
+	$iso = trim( $iso );
+
+	// Detect explicit TZ marker (Z or +HH:MM / -HH:MM)
+	$has_tz = (bool) preg_match( '/(Z|[+\-]\d{2}:?\d{2})$/i', $iso );
 
 	try {
-		$tz = wp_timezone(); // Site TZ
-		// Allow either bare local ISO or offset/Z. If bare, treat as site tz.
-		$dt = new DateTime( $iso, $tz );
+		if ( $has_tz ) {
+			$dt = new DateTime( $iso ); // honor explicit timezone in string
+		} else {
+			$dt = new DateTime( $iso, wp_timezone() ); // assume site TZ
+		}
 		return $dt->getTimestamp();
 	} catch ( Exception $e ) {
 		return null;
 	}
 }
 
-/** Get "now" in site timezone as a timestamp. */
+/** "Now" as epoch seconds (absolute moment). */
 function scb_now_site_ts() {
-	// current_time('timestamp') returns site-local timestamp respecting timezone_string.
-	return (int) current_time( 'timestamp' );
+	return time(); // epoch is timezone-agnostic
 }
 
 /** Editor-only wrapper with a visible schedule badge */
@@ -148,8 +162,12 @@ function scb_wrap_admin_notice_front( $atts, $content ) {
 function scb_schedule_badge_html( $atts, $is_editor ) {
 	$tz   = wp_timezone_string() ?: 'UTC';
 	$fmt  = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
-	$start = $atts['start'] ? wp_date( $fmt, scb_parse_site_ts( $atts['start'] ) ) : '—';
-	$end   = $atts['end']   ? wp_date( $fmt, scb_parse_site_ts( $atts['end'] ) )   : '—';
+
+	$start_ts = scb_parse_site_ts( $atts['start'] );
+	$end_ts   = scb_parse_site_ts( $atts['end'] );
+
+	$start = ($atts['start'] && $start_ts !== null) ? wp_date( $fmt, $start_ts ) : '—';
+	$end   = ($atts['end'] && $end_ts   !== null)   ? wp_date( $fmt, $end_ts )   : '—';
 	$who   = ( ! empty( $atts['showForAdmins'] ) ) ? ' (visible to admins always)' : '';
 
 	$context = $is_editor ? 'Editor preview' : 'Frontend admin view';
