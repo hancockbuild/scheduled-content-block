@@ -21,6 +21,14 @@
     var ALLOWED_BLOCKS = undefined; // allow any
     var TEMPLATE = []; // none
 
+    function toISOZ(val){
+        if (!val) return '';
+        var d = new Date(val);
+        if (isNaN(d.getTime())) return '';
+        var iso = d.toISOString();
+        return iso.replace(/\.\d{3}Z$/, 'Z');
+    }
+
     registerBlockType('h-b/scheduled-container', {
         edit: function (props) {
             var attributes = props.attributes;
@@ -53,18 +61,18 @@
                     el(
                         PanelBody,
                         { title: __('Schedule', 'scheduled-content-block'), initialOpen: true },
-                        el('p', { className: 'components-help' }, __('Times use the site timezone.', 'scheduled-content-block')),
+                        el('p', { className: 'components-help' }, __('Times save as UTC; display uses the site timezone.', 'scheduled-content-block')),
                         el('label', { className: 'components-base-control__label' }, __('Start (optional)', 'scheduled-content-block')),
                         el(DateTimePicker, {
                             currentDate: start || '',
-                            onChange: function (val) { setAttributes({ start: val || '' }); },
+                            onChange: function (val) { setAttributes({ start: toISOZ(val) }); },
                             is12Hour: false
                         }),
                         el('div', { style: { height: '10px' } }),
                         el('label', { className: 'components-base-control__label' }, __('End (optional)', 'scheduled-content-block')),
                         el(DateTimePicker, {
                             currentDate: end || '',
-                            onChange: function (val) { setAttributes({ end: val || '' }); },
+                            onChange: function (val) { setAttributes({ end: toISOZ(val) }); },
                             is12Hour: false
                         })
                     ),
