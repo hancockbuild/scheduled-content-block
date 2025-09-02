@@ -1,0 +1,36 @@
+{
+  "apiVersion": 3,
+  "name": "h-b/scheduled-container",
+  "title": "Scheduled Container",
+  "category": "design",
+  "icon": "clock",
+  "description": "A container that reveals its inner blocks only between a start and end time.",
+  "keywords": ["schedule", "visibility", "container", "time"],
+  "textdomain": "scheduled-content-block",
+  "style": "file:./style.css",
+  "editorStyle": "file:./editor.css",
+  "attributes": {
+    "start": { "type": "string", "default": "" },
+    "end": { "type": "string", "default": "" },
+    "showForAdmins": { "type": "boolean", "default": true },
+    "showPlaceholder": { "type": "boolean", "default": false },
+    "placeholderText": { "type": "string", "default": "" }
+  },
+  "supports": {
+    "html": false,
+    "anchor": true,
+    "align": ["wide", "full"]
+  },
+  "usesContext": ["postType", "postId"],
+  "providesContext": {},
+  "example": {
+    "attributes": {
+      "start": "2025-09-02T09:00:00",
+      "end": "2025-09-10T17:00:00",
+      "showForAdmins": true
+    },
+    "innerBlocks": [
+      { "name": "core/paragraph", "attributes": { "content": "This content will appear only during the schedule window." } }
+    ]
+  }
+}
