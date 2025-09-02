@@ -8,7 +8,7 @@
 - License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Description
-Scheduled Content Block is a WordPress plugin which enables the easy scheduling of content on WordPress pages or posts.
+Scheduled Content Block is a WordPress plugin which enables the easy scheduling of content on WordPress pages or posts via a new Scheduled Content block.
 
 ## Changelog
 - v0.0.1: Initial alpha release.
