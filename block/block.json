@@ -25,12 +25,17 @@
   "providesContext": {},
   "example": {
     "attributes": {
-      "start": "2025-09-02T09:00:00",
-      "end": "2025-09-10T17:00:00",
+      "start": "2025-09-02T09:00:00Z",
+      "end": "2025-09-10T17:00:00Z",
       "showForAdmins": true
     },
     "innerBlocks": [
-      { "name": "core/paragraph", "attributes": { "content": "This content will appear only during the schedule window." } }
+      {
+        "name": "core/paragraph",
+        "attributes": {
+          "content": "This content will appear only during the schedule window."
+        }
+      }
     ]
   }
 }
