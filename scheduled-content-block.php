@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Scheduled Content Block
  * Description: A simple container block that enables the easy scheduleing of content on WordPress pages or posts.
- * Version: 0.0.2
+ * Version: 0.0.3
  * Requires PHP: 8.2
  * Author: h.b Plugins
  * Author URI: https://hancock.build
@@ -30,7 +30,7 @@ add_action( 'init', function() {
  */
 add_action('enqueue_block_editor_assets', function () {
 	$deps = array('wp-blocks','wp-element','wp-components','wp-editor','wp-i18n','wp-block-editor');
-	wp_register_script('scb-inline-editor', false, $deps, '1.1.0', true);
+	wp_register_script('scb-inline-editor', false, $deps, '1.1.1', true);
 	wp_enqueue_script('scb-inline-editor');
 
 	$path = SCB_PLUGIN_DIR . 'block/editor.js';
@@ -88,10 +88,6 @@ function scb_render_callback( $attributes, $content, $block ) {
 	}
 
 	// Visibility rules:
-	// - If both empty => always visible
-	// - If start only  => visible when now >= start
-	// - If end only    => visible when now <= end
-	// - If both        => visible when start <= now <= end
 	$visible = true;
 	if ( $hasStart && $hasEnd ) {
 		$visible = ( $now >= $startTs ) && ( $now <= $endTs );
@@ -161,7 +157,8 @@ function scb_wrap_admin_notice_front( $atts, $content ) {
 /** Render a small schedule badge */
 function scb_schedule_badge_html( $atts, $is_editor ) {
 	$tz   = wp_timezone_string() ?: 'UTC';
-	$fmt  = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+	// Use a friendlier format in the EDITOR: "January 1 2025 at 11:30am"
+	$fmt  = $is_editor ? 'F j Y \a\t g:ia' : ( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) );
 
 	$start_ts = scb_parse_site_ts( $atts['start'] );
 	$end_ts   = scb_parse_site_ts( $atts['end'] );
