@@ -29,6 +29,37 @@
         return iso.replace(/\.\d{3}Z$/, 'Z');
     }
 
+    function getSiteTimeZone() {
+        try {
+            if (wp.date && (wp.date.__experimentalGetSettings || wp.date.getSettings)) {
+                var settings = wp.date.__experimentalGetSettings ? wp.date.__experimentalGetSettings() : wp.date.getSettings();
+                if (settings && settings.timezone && settings.timezone.string) {
+                    return settings.timezone.string;
+                }
+            }
+        } catch (e) {}
+        // Fallback: browser TZ or UTC
+        try {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        } catch (e) {
+            return 'UTC';
+        }
+    }
+
+    function formatReadable(iso) {
+        if (!iso) return '—';
+        var tz = getSiteTimeZone();
+        try {
+            var d = new Date(iso);
+            var datePart = new Intl.DateTimeFormat(undefined, { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric' }).format(d);
+            var timePart = new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
+            timePart = timePart.toLowerCase().replace(' ', '');
+            return datePart + ' at ' + timePart;
+        } catch (e) {
+            return iso;
+        }
+    }
+
     registerBlockType('h-b/scheduled-container', {
         edit: function (props) {
             var attributes = props.attributes;
@@ -40,7 +71,7 @@
             var placeholderText = attributes.placeholderText;
 
             function scheduleLabel() {
-                return 'Start: ' + (start || '—') + ' | End: ' + (end || '—');
+                return 'Start: ' + formatReadable(start) + ' | End: ' + formatReadable(end);
             }
 
             return el(
@@ -101,7 +132,7 @@
                     { className: 'scb-editor-frame' },
                     el(Notice, { status: 'info', isDismissible: false },
                         el('strong', null, __('Scheduled Container', 'scheduled-content-block')),
-                        ': ' + scheduleLabel() + ' — ' + __('Editor shows content for authoring. Frontend enforces schedule.', 'scheduled-content-block')
+                        ': ' + scheduleLabel()
                     ),
                     el(
                         'div',
