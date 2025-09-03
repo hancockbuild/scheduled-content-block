@@ -17,7 +17,6 @@
     var ToolbarGroup = components.ToolbarGroup;
     var ToolbarButton = components.ToolbarButton;
     var Notice = components.Notice;
-    var RangeControl = components.RangeControl;
 
     var ALLOWED_BLOCKS = undefined; // allow any
     var TEMPLATE = []; // none
@@ -39,8 +38,12 @@
                 }
             }
         } catch (e) {}
-        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
-        catch (e) { return 'UTC'; }
+        // Fallback: browser TZ or UTC
+        try {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        } catch (e) {
+            return 'UTC';
+        }
     }
 
     function formatReadable(iso) {
@@ -52,7 +55,9 @@
             var timePart = new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
             timePart = timePart.toLowerCase().replace(' ', '');
             return datePart + ' at ' + timePart;
-        } catch (e) { return iso; }
+        } catch (e) {
+            return iso;
+        }
     }
 
     registerBlockType('h-b/scheduled-container', {
@@ -64,15 +69,10 @@
             var showForAdmins = attributes.showForAdmins;
             var showPlaceholder = attributes.showPlaceholder;
             var placeholderText = attributes.placeholderText;
-            var innerMaxWidth = attributes.innerMaxWidth || 0;
 
             function scheduleLabel() {
                 return 'Start: ' + formatReadable(start) + ' | End: ' + formatReadable(end);
             }
-
-            var previewStyle = innerMaxWidth > 0
-                ? { maxWidth: innerMaxWidth + 'px', marginLeft: 'auto', marginRight: 'auto' }
-                : { maxWidth: 'none' };
 
             return el(
                 Fragment,
@@ -109,16 +109,22 @@
                     ),
                     el(
                         PanelBody,
-                        { title: __('Layout', 'scheduled-content-block'), initialOpen: false },
-                        el(RangeControl, {
-                            label: __('Inner max width (px)', 'scheduled-content-block'),
-                            value: innerMaxWidth,
-                            onChange: function (v) { setAttributes({ innerMaxWidth: parseInt(v || 0, 10) || 0 }); },
-                            min: 0,
-                            max: 1920,
-                            step: 10,
-                            help: innerMaxWidth > 0 ? __('Centered; set 0 for full width.', 'scheduled-content-block') : __('Full width (no max).', 'scheduled-content-block')
-                        })
+                        { title: __('Visibility Options', 'scheduled-content-block'), initialOpen: false },
+                        el(ToggleControl, {
+                            label: __('Always show to admins', 'scheduled-content-block'),
+                            checked: !!showForAdmins,
+                            onChange: function (v) { setAttributes({ showForAdmins: !!v }); }
+                        }),
+                        el(ToggleControl, {
+                            label: __('Output placeholder when hidden', 'scheduled-content-block'),
+                            checked: !!showPlaceholder,
+                            onChange: function (v) { setAttributes({ showPlaceholder: !!v }); }
+                        }),
+                        showPlaceholder ? el(TextareaControl, {
+                            label: __('Placeholder text', 'scheduled-content-block'),
+                            value: placeholderText,
+                            onChange: function (v) { setAttributes({ placeholderText: v }); }
+                        }) : null
                     )
                 ),
                 el(
@@ -130,7 +136,7 @@
                     ),
                     el(
                         'div',
-                        { className: 'scb-editor-inner scb-inner', style: previewStyle },
+                        { className: 'scb-editor-inner' },
                         el(InnerBlocks, {
                             allowedBlocks: ALLOWED_BLOCKS,
                             template: TEMPLATE,
