@@ -30,8 +30,25 @@
         return iso.replace(/\.\d{3}Z$/, 'Z');
     }
 
+    function parseOffsetMinutes(tz) {
+        var match = tz && tz.match(/^UTC([+-]\d{1,2})(?::(\d{2}))?$/);
+        if (!match) return null;
+        var sign = match[1][0] === '-' ? -1 : 1;
+        var hours = parseInt(match[1].slice(1), 10);
+        var mins = match[2] ? parseInt(match[2], 10) : 0;
+        return sign * (hours * 60 + mins);
+    }
+
     function isoToLocalParts(iso) {
         if (!iso) return { date: '', time: '' };
+        var tz = getSiteTimeZone();
+        if (wp.date && wp.date.moment) {
+            var m = wp.date.moment(iso);
+            var off = parseOffsetMinutes(tz);
+            m = off === null ? m.tz(tz) : m.utcOffset(off);
+            if (!m.isValid()) return { date: '', time: '' };
+            return { date: m.format('YYYY-MM-DD'), time: m.format('HH:mm') };
+        }
         var d = new Date(iso);
         if (isNaN(d.getTime())) return { date: '', time: '' };
         var pad = function (n) { return ('0' + n).slice(-2); };
@@ -43,9 +60,23 @@
 
     function combineLocal(dateStr, timeStr) {
         if (!dateStr && !timeStr) return '';
+        var tz = getSiteTimeZone();
+        if (wp.date && wp.date.moment) {
+            var off = parseOffsetMinutes(tz);
+            var moment = wp.date.moment;
+            if (!dateStr) {
+                var now = moment();
+                now = off === null ? now.tz(tz) : now.utcOffset(off);
+                dateStr = now.format('YYYY-MM-DD');
+            }
+            timeStr = timeStr || '00:00';
+            var m = moment(dateStr + 'T' + timeStr);
+            m = off === null ? m.tz(tz) : m.utcOffset(off, true);
+            return m.utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+        }
         if (!dateStr) {
-            var now = new Date();
-            dateStr = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+            var nowDate = new Date();
+            dateStr = nowDate.getFullYear() + '-' + ('0' + (nowDate.getMonth() + 1)).slice(-2) + '-' + ('0' + nowDate.getDate()).slice(-2);
         }
         timeStr = timeStr || '00:00';
         return toISOZ(dateStr + 'T' + timeStr);
