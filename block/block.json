@@ -14,7 +14,8 @@
     "end": { "type": "string", "default": "" },
     "showForAdmins": { "type": "boolean", "default": true },
     "showPlaceholder": { "type": "boolean", "default": false },
-    "placeholderText": { "type": "string", "default": "" }
+    "placeholderText": { "type": "string", "default": "" },
+    "align": { "type": "string", "default": "full" }
   },
   "supports": {
     "html": false,
