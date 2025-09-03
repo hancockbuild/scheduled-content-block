@@ -8,7 +8,11 @@
 - License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Description
-Scheduled Content Block is a WordPress plugin which enables the easy scheduling of content on WordPress pages or posts via a new Scheduled Content block.
+Scheduled Content Block is a WordPress plugin which enables the easy scheduling of content on WordPress pages or posts via a new Scheduled Content block. This plugin makes creating scheduled content within blocks simple and completely hands-free.
+
+## Features
+- Simple container block, allowing you to display content within the block during a specific timeframe.
+- Optional integration with the Breeze caching plugin, purging the site's cache when content is scheduled to become active or inactive.
 
 ## Changelog
 - v0.0.1: Initial alpha release.
