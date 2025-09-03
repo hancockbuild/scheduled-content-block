@@ -14,12 +14,18 @@
     "end": { "type": "string", "default": "" },
     "showForAdmins": { "type": "boolean", "default": true },
     "showPlaceholder": { "type": "boolean", "default": false },
-    "placeholderText": { "type": "string", "default": "" }
+    "placeholderText": { "type": "string", "default": "" },
+    "align": { "type": "string", "default": "full" },
+    "innerMaxWidth": { "type": "number", "default": 0 }
   },
   "supports": {
     "html": false,
     "anchor": true,
-    "align": ["wide", "full"]
+    "align": ["wide", "full"],
+    "spacing": {
+      "margin": true,
+      "padding": true
+    }
   },
   "usesContext": ["postType", "postId"],
   "providesContext": {},
@@ -27,7 +33,9 @@
     "attributes": {
       "start": "2025-09-02T09:00:00Z",
       "end": "2025-09-10T17:00:00Z",
-      "showForAdmins": true
+      "showForAdmins": true,
+      "align": "full",
+      "innerMaxWidth": 900
     },
     "innerBlocks": [
       {
