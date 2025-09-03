@@ -3,6 +3,7 @@
     var __ = wp.i18n.__;
     var el = wp.element.createElement;
     var Fragment = wp.element.Fragment;
+    var useEffect = wp.element.useEffect;
 
     var be = wp.blockEditor || wp.editor;
     var InspectorControls = be.InspectorControls;
@@ -123,6 +124,12 @@
             var showPlaceholder = attributes.showPlaceholder;
             var placeholderText = attributes.placeholderText;
 
+            useEffect(function(){
+                if (!start) {
+                    setAttributes({ start: toISOZ(new Date()) });
+                }
+            }, [start]);
+
             function scheduleLabel() {
                 return 'Start: ' + formatReadable(start) + ' | End: ' + formatReadable(end);
             }
@@ -203,7 +210,7 @@
                             onChange: function (v) { setAttributes({ showForAdmins: !!v }); }
                         }),
                         el(ToggleControl, {
-                            label: __('Output placeholder when hidden', 'scheduled-content-block'),
+                            label: __('Show a placeholder message when hidden', 'scheduled-content-block'),
                             checked: !!showPlaceholder,
                             onChange: function (v) { setAttributes({ showPlaceholder: !!v }); }
                         }),
