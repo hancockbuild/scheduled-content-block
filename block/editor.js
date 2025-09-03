@@ -71,7 +71,7 @@
             }
             timeStr = timeStr || '00:00';
             var m = moment(dateStr + 'T' + timeStr);
-            m = off === null ? m.tz(tz) : m.utcOffset(off, true);
+            m = off === null ? m.tz(tz, true) : m.utcOffset(off, true);
             return m.utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
         }
         if (!dateStr) {
