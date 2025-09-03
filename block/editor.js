@@ -32,6 +32,13 @@
 
     function isoToLocalParts(iso) {
         if (!iso) return { date: '', time: '' };
+        var tz = getSiteTimeZone();
+        try {
+            if (wp.date && wp.date.moment) {
+                var m = wp.date.moment(iso).tz(tz);
+                return { date: m.format('YYYY-MM-DD'), time: m.format('HH:mm') };
+            }
+        } catch (e) {}
         var d = new Date(iso);
         if (isNaN(d.getTime())) return { date: '', time: '' };
         var pad = function (n) { return ('0' + n).slice(-2); };
@@ -43,11 +50,25 @@
 
     function combineLocal(dateStr, timeStr) {
         if (!dateStr && !timeStr) return '';
+        timeStr = timeStr || '00:00';
+        var tz = getSiteTimeZone();
+        try {
+            if (wp.date && wp.date.moment) {
+                var m;
+                if (dateStr) {
+                    m = wp.date.moment.tz(dateStr + 'T' + timeStr, tz);
+                } else {
+                    var parts = timeStr.split(':');
+                    m = wp.date.moment.tz(tz);
+                    m.set({ hour: parseInt(parts[0], 10), minute: parseInt(parts[1], 10), second: 0, millisecond: 0 });
+                }
+                return toISOZ(m.toDate());
+            }
+        } catch (e) {}
         if (!dateStr) {
             var now = new Date();
             dateStr = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
         }
-        timeStr = timeStr || '00:00';
         return toISOZ(dateStr + 'T' + timeStr);
     }
 
