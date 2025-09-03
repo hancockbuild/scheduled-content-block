@@ -8,6 +8,8 @@
     var InspectorControls = be.InspectorControls;
     var InnerBlocks = be.InnerBlocks;
     var BlockControls = be.BlockControls;
+    var useBlockProps = be.useBlockProps;
+    var useInnerBlocksProps = be.useInnerBlocksProps;
 
     var components = wp.components;
     var PanelBody = components.PanelBody;
@@ -74,6 +76,12 @@
                 return 'Start: ' + formatReadable(start) + ' | End: ' + formatReadable(end);
             }
 
+            var blockProps = useBlockProps({ className: 'scb-editor-frame' });
+            var innerBlocksProps = useInnerBlocksProps(
+                { className: 'scb-editor-inner' },
+                { allowedBlocks: ALLOWED_BLOCKS, template: TEMPLATE, templateLock: false }
+            );
+
             return el(
                 Fragment,
                 null,
@@ -129,20 +137,12 @@
                 ),
                 el(
                     'div',
-                    { className: 'scb-editor-frame' },
+                    blockProps,
                     el(Notice, { status: 'info', isDismissible: false },
                         el('strong', null, __('Scheduled Container', 'scheduled-content-block')),
                         ': ' + scheduleLabel()
                     ),
-                    el(
-                        'div',
-                        { className: 'scb-editor-inner' },
-                        el(InnerBlocks, {
-                            allowedBlocks: ALLOWED_BLOCKS,
-                            template: TEMPLATE,
-                            templateLock: false
-                        })
-                    )
+                    el('div', innerBlocksProps)
                 )
             );
         },
