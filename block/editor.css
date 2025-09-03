@@ -9,3 +9,13 @@
   border-radius: 6px;
   background: #fff;
 }
+
+.scb-datetime-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.scb-datetime-row .components-text-control__input {
+  width: 100%;
+}

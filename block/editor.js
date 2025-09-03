@@ -13,7 +13,6 @@
 
     var components = wp.components;
     var PanelBody = components.PanelBody;
-    var DateTimePicker = components.DateTimePicker;
     var ToggleControl = components.ToggleControl;
     var TextareaControl = components.TextareaControl;
     var ToolbarGroup = components.ToolbarGroup;
@@ -29,6 +28,27 @@
         if (isNaN(d.getTime())) return '';
         var iso = d.toISOString();
         return iso.replace(/\.\d{3}Z$/, 'Z');
+    }
+
+    function isoToLocalParts(iso) {
+        if (!iso) return { date: '', time: '' };
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return { date: '', time: '' };
+        var pad = function (n) { return ('0' + n).slice(-2); };
+        return {
+            date: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()),
+            time: pad(d.getHours()) + ':' + pad(d.getMinutes())
+        };
+    }
+
+    function combineLocal(dateStr, timeStr) {
+        if (!dateStr && !timeStr) return '';
+        if (!dateStr) {
+            var now = new Date();
+            dateStr = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+        }
+        timeStr = timeStr || '00:00';
+        return toISOZ(dateStr + 'T' + timeStr);
     }
 
     function getSiteTimeZone() {
@@ -99,21 +119,49 @@
                     null,
                     el(
                         PanelBody,
-                        { title: __('Schedule', 'scheduled-content-block'), initialOpen: true },
-                        el('p', { className: 'components-help' }, __('Times save as UTC; display uses the site timezone.', 'scheduled-content-block')),
-                        el('label', { className: 'components-base-control__label' }, __('Start (optional)', 'scheduled-content-block')),
-                        el(DateTimePicker, {
-                            currentDate: start || '',
-                            onChange: function (val) { setAttributes({ start: toISOZ(val) }); },
-                            is12Hour: false
-                        }),
+                        { title: __('Display Schedule', 'scheduled-content-block'), initialOpen: true },
+                        el('p', { className: 'components-help' }, __('Choose your start and end date for content to be displayed. Dates and times use the site timezone.', 'scheduled-content-block')),
+                        (function(){
+                            var sp = isoToLocalParts(start);
+                            return el('div', { className: 'scb-datetime-group' },
+                                el('label', { className: 'components-base-control__label' }, __('Start', 'scheduled-content-block')),
+                                el('div', { className: 'scb-datetime-row' },
+                                    el('input', {
+                                        type: 'date',
+                                        className: 'components-text-control__input',
+                                        value: sp.date,
+                                        onChange: function(e){ setAttributes({ start: combineLocal(e.target.value, sp.time) }); }
+                                    }),
+                                    el('input', {
+                                        type: 'time',
+                                        className: 'components-text-control__input',
+                                        value: sp.time,
+                                        onChange: function(e){ setAttributes({ start: combineLocal(sp.date, e.target.value) }); }
+                                    })
+                                )
+                            );
+                        })(),
                         el('div', { style: { height: '10px' } }),
-                        el('label', { className: 'components-base-control__label' }, __('End (optional)', 'scheduled-content-block')),
-                        el(DateTimePicker, {
-                            currentDate: end || '',
-                            onChange: function (val) { setAttributes({ end: toISOZ(val) }); },
-                            is12Hour: false
-                        })
+                        (function(){
+                            var ep = isoToLocalParts(end);
+                            return el('div', { className: 'scb-datetime-group' },
+                                el('label', { className: 'components-base-control__label' }, __('End', 'scheduled-content-block')),
+                                el('div', { className: 'scb-datetime-row' },
+                                    el('input', {
+                                        type: 'date',
+                                        className: 'components-text-control__input',
+                                        value: ep.date,
+                                        onChange: function(e){ setAttributes({ end: combineLocal(e.target.value, ep.time) }); }
+                                    }),
+                                    el('input', {
+                                        type: 'time',
+                                        className: 'components-text-control__input',
+                                        value: ep.time,
+                                        onChange: function(e){ setAttributes({ end: combineLocal(ep.date, e.target.value) }); }
+                                    })
+                                )
+                            );
+                        })()
                     ),
                     el(
                         PanelBody,
