@@ -1,9 +1,9 @@
 # Scheduled Content Block
 - Contributors: hancockbuild
-- Requires at least: 5.2
+- Requires at least: 6.0
 - Tested up to: 6.8
 - Requires PHP: 8.2
-- Stable tag: 0.0.5
+- Stable tag: 0.0.6
 - License: GPLv3 or later
 - License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -20,3 +20,4 @@ Scheduled Content Block is a WordPress plugin which enables the easy scheduling 
 - v0.0.3: Cleaned up the date/time display in the editor.
 - v0.0.4: Added optional integration to the Breeze cache plugin to purge the cache when content is scheduled to go live and when it is scheduled to be removed.
 - v0.0.5: Testing Codex PRs. What could go wrong? Made the block full-width to allow for flexible widths of content inside the block.
+- v0.0.6: Improved the layout and wording of the schedule field and made some updates to ensure that scheduled times align with the site time. 
