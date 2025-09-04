@@ -3,7 +3,7 @@
 - Requires at least: 6.0
 - Tested up to: 6.8.2
 - Requires PHP: 8.2
-- Stable tag: 0.1.0
+- Stable tag: 0.1.1
 - License: GPLv3 or later
 - License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -24,3 +24,4 @@ Scheduled Content Block is a WordPress plugin which enables the easy scheduling 
 - v0.0.6: Improved the layout and wording of the schedule field and made some updates to ensure that scheduled times align with the site time.
 - v0.0.7: Added per-role visibility settings and made the block default to normal width while supporting wide and full alignments.
 - v0.1.0: Beta release.
+- v0.1.1: Fix undefined admin check in block editor.
