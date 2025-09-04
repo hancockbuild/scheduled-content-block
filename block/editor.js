@@ -125,10 +125,16 @@
             var placeholderText = attributes.placeholderText;
 
             useEffect(function(){
-                if (!start) {
+                if (
+                    !start &&
+                    !end &&
+                    showForAdmins === true &&
+                    showPlaceholder === false &&
+                    !placeholderText
+                ) {
                     setAttributes({ start: toISOZ(new Date()) });
                 }
-            }, [start]);
+            }, []);
 
             function scheduleLabel() {
                 return 'Start: ' + formatReadable(start) + ' | End: ' + formatReadable(end);
