@@ -120,7 +120,6 @@
             var setAttributes = props.setAttributes;
             var start = attributes.start;
             var end = attributes.end;
-            var showForAdmins = attributes.showForAdmins;
             var showPlaceholder = attributes.showPlaceholder;
             var placeholderText = attributes.placeholderText;
 
@@ -204,11 +203,6 @@
                     el(
                         PanelBody,
                         { title: __('Visibility Options', 'scheduled-content-block'), initialOpen: false },
-                        el(ToggleControl, {
-                            label: __('Always show to admins', 'scheduled-content-block'),
-                            checked: !!showForAdmins,
-                            onChange: function (v) { setAttributes({ showForAdmins: !!v }); }
-                        }),
                         el(ToggleControl, {
                             label: __('Show a placeholder message when hidden', 'scheduled-content-block'),
                             checked: !!showPlaceholder,
