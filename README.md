@@ -1,7 +1,7 @@
 # Scheduled Content Block
 - Contributors: hancockbuild
 - Requires at least: 6.0
-- Tested up to: 6.8
+- Tested up to: 6.8.2
 - Requires PHP: 8.2
 - Stable tag: 0.1.0
 - License: GPLv3 or later
