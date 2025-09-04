@@ -12,10 +12,8 @@
   "attributes": {
     "start": { "type": "string", "default": "" },
     "end": { "type": "string", "default": "" },
-    "showForAdmins": { "type": "boolean", "default": true },
     "showPlaceholder": { "type": "boolean", "default": false },
-    "placeholderText": { "type": "string", "default": "" },
-    "align": { "type": "string", "default": "full" }
+    "placeholderText": { "type": "string", "default": "" }
   },
   "supports": {
     "html": false,
@@ -27,8 +25,7 @@
   "example": {
     "attributes": {
       "start": "2025-09-02T09:00:00Z",
-      "end": "2025-09-10T17:00:00Z",
-      "showForAdmins": true
+      "end": "2025-09-10T17:00:00Z"
     },
     "innerBlocks": [
       {

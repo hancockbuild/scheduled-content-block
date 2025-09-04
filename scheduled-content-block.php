@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Scheduled Content Block
  * Description: A simple container block that enables the easy scheduleing of content on WordPress pages or posts.
- * Version: 0.0.6
+ * Version: 0.1.0
  * Requires PHP: 8.2
  * Author: h.b Plugins
  * Author URI: https://hancock.build
@@ -49,10 +49,9 @@ function scb_render_callback( $attributes, $content, $block ) {
 	$defaults = array(
 		'start'            => '',
 		'end'              => '',
-		'showForAdmins'    => true,
-		'showPlaceholder'  => false,
-		'placeholderText'  => '',
-	);
+                'showPlaceholder'  => false,
+                'placeholderText'  => '',
+        );
 	$atts = wp_parse_args( $attributes, $defaults );
 
 	// Show in editor for authoring clarity.
@@ -63,10 +62,10 @@ function scb_render_callback( $attributes, $content, $block ) {
 		}
 	}
 
-	// Optional admin bypass on frontend.
-	if ( ! empty( $atts['showForAdmins'] ) && current_user_can( 'manage_options' ) ) {
-		return scb_wrap_admin_notice_front( $atts, $content );
-	}
+        // Allow bypass based on selected roles.
+        if ( scb_user_can_bypass_schedule() ) {
+                return $content;
+        }
 
 	$now     = scb_now_site_ts();
 	$startTs = scb_parse_site_ts( $atts['start'] );
@@ -122,12 +121,6 @@ function scb_wrap_editor_notice( $atts, $content ) {
 	return '<div class="scb-editor-wrap">' . $badge . $content . '</div>';
 }
 
-/** Frontend admin notice wrapper */
-function scb_wrap_admin_notice_front( $atts, $content ) {
-	$badge = scb_schedule_badge_html( $atts, false );
-	return '<div class="scb-admin-visible">' . $badge . $content . '</div>';
-}
-
 /** Render a small schedule badge (editor uses friendly format) */
 function scb_schedule_badge_html( $atts, $is_editor ) {
 	$tz   = wp_timezone_string() ?: 'UTC';
@@ -136,53 +129,64 @@ function scb_schedule_badge_html( $atts, $is_editor ) {
 	$start_ts = scb_parse_site_ts( $atts['start'] );
 	$end_ts   = scb_parse_site_ts( $atts['end'] );
 
-	$start = ($atts['start'] && $start_ts !== null) ? wp_date( $fmt, $start_ts ) : '—';
-	$end   = ($atts['end'] && $end_ts   !== null)   ? wp_date( $fmt, $end_ts )   : '—';
-	$who   = ( ! empty( $atts['showForAdmins'] ) ) ? ' (visible to admins always)' : '';
-	$context = $is_editor ? 'Editor preview' : 'Frontend admin view';
+        $start = ($atts['start'] && $start_ts !== null) ? wp_date( $fmt, $start_ts ) : '—';
+        $end   = ($atts['end'] && $end_ts   !== null)   ? wp_date( $fmt, $end_ts )   : '—';
+        $context = $is_editor ? 'Editor preview' : 'Frontend view';
 
-	return sprintf(
-		'<div class="scb-badge"><strong>Scheduled Content:</strong> %s | <strong>Start:</strong> %s | <strong>End:</strong> %s | <strong>TZ:</strong> %s%s</div>',
-		esc_html( $context ), esc_html( $start ), esc_html( $end ), esc_html( $tz ), esc_html( $who )
-	);
+        return sprintf(
+                '<div class="scb-badge"><strong>Scheduled Content:</strong> %s | <strong>Start:</strong> %s | <strong>End:</strong> %s | <strong>TZ:</strong> %s</div>',
+                esc_html( $context ), esc_html( $start ), esc_html( $end ), esc_html( $tz )
+        );
 }
 
 /* =======================================================
  *  Optional Breeze integration (purge cache on start/end)
  * =======================================================*/
 
-/** Settings: add a tiny page under Settings → Scheduled Content (only if Breeze present). */
+/** Settings: add a page under Settings → Scheduled Content. */
 add_action( 'admin_menu', function () {
-	if ( ! scb_breeze_is_available() ) return;
-	add_options_page(
-		__( 'Scheduled Content', 'scheduled-content-block' ),
-		__( 'Scheduled Content', 'scheduled-content-block' ),
-		'manage_options',
-		'scb-settings',
-		'scb_render_settings_page'
-	);
+        add_options_page(
+                __( 'Scheduled Content', 'scheduled-content-block' ),
+                __( 'Scheduled Content', 'scheduled-content-block' ),
+                'manage_options',
+                'scb-settings',
+                'scb_render_settings_page'
+        );
 });
 
 add_action( 'admin_init', function () {
-	if ( ! scb_breeze_is_available() ) return;
-	register_setting( 'scb_settings', 'scb_breeze_enable', array(
-		'type' => 'boolean',
-		'sanitize_callback' => function( $v ) { return ( $v === '1' || $v === 1 || $v === true ) ? 1 : 0; },
-		'default' => 0,
-	) );
-	add_settings_section( 'scb_main', '', '__return_false', 'scb-settings' );
-	add_settings_field(
-		'scb_breeze_enable',
-		__( 'Purge Breeze cache at schedule boundaries', 'scheduled-content-block' ),
-		function () {
-			$enabled = (int) get_option( 'scb_breeze_enable', 0 );
-			echo '<label><input type="checkbox" name="scb_breeze_enable" value="1" ' . checked( 1, $enabled, false ) . ' />';
-			echo ' ' . esc_html__( 'Enable (purges site cache at each block’s start & end time).', 'scheduled-content-block' ) . '</label>';
-			echo '<p class="description">' . esc_html__( 'Requires the Breeze plugin. Uses Breeze’s purge-all hook.', 'scheduled-content-block' ) . '</p>';
-		},
-		'scb-settings',
-		'scb_main'
-	);
+        register_setting( 'scb_settings', 'scb_visibility_roles', array(
+                'type'              => 'array',
+                'sanitize_callback' => 'scb_sanitize_visibility_roles',
+                'default'           => scb_visibility_default_roles(),
+        ) );
+        register_setting( 'scb_settings', 'scb_breeze_enable', array(
+                'type' => 'boolean',
+                'sanitize_callback' => function( $v ) { return ( $v === '1' || $v === 1 || $v === true ) ? 1 : 0; },
+                'default' => 0,
+        ) );
+        add_settings_section( 'scb_main', '', '__return_false', 'scb-settings' );
+        add_settings_field(
+                'scb_visibility_roles',
+                __( 'Roles allowed outside schedule', 'scheduled-content-block' ),
+                'scb_visibility_roles_field',
+                'scb-settings',
+                'scb_main'
+        );
+        if ( scb_breeze_is_available() ) {
+                add_settings_field(
+                        'scb_breeze_enable',
+                        __( 'Purge Breeze cache at schedule boundaries', 'scheduled-content-block' ),
+                        function () {
+                                $enabled = (int) get_option( 'scb_breeze_enable', 0 );
+                                echo '<label><input type="checkbox" name="scb_breeze_enable" value="1" ' . checked( 1, $enabled, false ) . ' />';
+                                echo ' ' . esc_html__( 'Enable (purges site cache at each block’s start & end time).', 'scheduled-content-block' ) . '</label>';
+                                echo '<p class="description">' . esc_html__( 'Requires the Breeze plugin. Uses Breeze’s purge-all hook.', 'scheduled-content-block' ) . '</p>';
+                        },
+                        'scb-settings',
+                        'scb_main'
+                );
+        }
 });
 
 /** Settings page renderer */
@@ -204,6 +208,46 @@ function scb_render_settings_page() {
 		<?php endif; ?>
 	</div>
 	<?php
+}
+
+/** Default roles that can view content outside schedule. */
+function scb_visibility_default_roles() {
+        return array_keys( wp_roles()->roles );
+}
+
+/** Sanitize roles option. */
+function scb_sanitize_visibility_roles( $roles ) {
+        $valid = scb_visibility_default_roles();
+        $valid[] = 'visitor';
+        if ( ! is_array( $roles ) ) return scb_visibility_default_roles();
+        $roles = array_map( 'sanitize_key', $roles );
+        return array_values( array_intersect( $roles, $valid ) );
+}
+
+/** Settings field renderer for role visibility. */
+function scb_visibility_roles_field() {
+        $value = get_option( 'scb_visibility_roles', scb_visibility_default_roles() );
+        $roles = wp_roles()->role_names;
+        foreach ( $roles as $slug => $name ) {
+                echo '<label><input type="checkbox" name="scb_visibility_roles[]" value="' . esc_attr( $slug ) . '" ' . checked( in_array( $slug, $value, true ), true, false ) . ' /> ' . esc_html( $name ) . '</label><br />';
+        }
+        echo '<label><input type="checkbox" name="scb_visibility_roles[]" value="visitor" ' . checked( in_array( 'visitor', $value, true ), true, false ) . ' /> ' . esc_html__( 'Visitors (not logged in)', 'scheduled-content-block' ) . '</label><br />';
+        echo '<p class="description">' . esc_html__( 'Selected roles can view content outside scheduled times.', 'scheduled-content-block' ) . '</p>';
+}
+
+/** Check if current user is allowed to bypass schedule. */
+function scb_user_can_bypass_schedule() {
+        $roles = get_option( 'scb_visibility_roles', scb_visibility_default_roles() );
+        if ( ! is_array( $roles ) ) $roles = scb_visibility_default_roles();
+        if ( is_user_logged_in() ) {
+                $user = wp_get_current_user();
+                foreach ( $user->roles as $r ) {
+                        if ( in_array( $r, $roles, true ) ) return true;
+                }
+        } else {
+                if ( in_array( 'visitor', $roles, true ) ) return true;
+        }
+        return false;
 }
 
 /** Utility: is Breeze present (and offers the purge hook)? */
