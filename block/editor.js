@@ -127,7 +127,6 @@
                 if (
                     !start &&
                     !end &&
-                    showForAdmins === true &&
                     showPlaceholder === false &&
                     !placeholderText
                 ) {
