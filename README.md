@@ -3,7 +3,7 @@
 - Requires at least: 6.0
 - Tested up to: 6.8
 - Requires PHP: 8.2
-- Stable tag: 1.01
+- Stable tag: 1.0.0
 - License: GPLv3 or later
 - License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -29,4 +29,3 @@ Scheduled Content Block is a WordPress plugin which enables the easy scheduling 
 - v0.1.1: Fix undefined admin check in block editor.
 - v0.1.2: Adjusted the requires version to be a major release. Added short description. Modified features and long description.
 - v1.0.0: First stable release with internal refactoring.
-- v1.01: Expand Breeze cache purge detection to include static class methods and fallback hooks.
