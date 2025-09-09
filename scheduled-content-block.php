@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Scheduled Content Block
- * Description: A simple container block that enables the easy scheduleing of content on WordPress pages or posts.
- * Version: 0.1.2
+ * Description: A simple container block that enables the easy scheduling of content on WordPress pages or posts.
+ * Version: 1.0.0
  * Requires PHP: 8.2
  * Author: h.b Plugins
  * Author URI: https://hancock.build
@@ -18,29 +18,31 @@ define( 'SCB_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 /**
  * Register the block (metadata) and attach server render callback.
  */
-add_action( 'init', function() {
-	register_block_type( __DIR__ . '/block', array(
-		'render_callback' => 'scb_render_callback',
-	) );
-} );
+function scb_register_block() {
+        register_block_type( __DIR__ . '/block', array(
+                'render_callback' => 'scb_render_callback',
+        ) );
+}
+add_action( 'init', 'scb_register_block' );
 
 /**
  * Inline the editor script to avoid HTTP fetch issues (e.g. WAF/404 serving HTML).
  */
-add_action('enqueue_block_editor_assets', function () {
-	$deps = array('wp-blocks','wp-element','wp-components','wp-editor','wp-i18n','wp-block-editor');
-	wp_register_script('scb-inline-editor', false, $deps, '1.2.0', true);
-	wp_enqueue_script('scb-inline-editor');
+function scb_enqueue_block_editor_assets() {
+        $deps = array('wp-blocks','wp-element','wp-components','wp-editor','wp-i18n','wp-block-editor');
+        wp_register_script('scb-inline-editor', false, $deps, '1.2.0', true);
+        wp_enqueue_script('scb-inline-editor');
 
-	$path = SCB_PLUGIN_DIR . 'block/editor.js';
-	$js = @file_get_contents($path);
+        $path = SCB_PLUGIN_DIR . 'block/editor.js';
+        $js = @file_get_contents($path);
 
-	if ($js === false) {
-		$js = "(function(wp){var el=wp.element.createElement,be=wp.blockEditor||wp.editor;var Inner=be.InnerBlocks;wp.blocks.registerBlockType('h-b/scheduled-container',{edit:function(){return el('div',null,'Scheduled Container (inline fallback)');},save:function(){return el(Inner.Content,null);}});})(window.wp);";
-	}
+        if ($js === false) {
+                $js = "(function(wp){var el=wp.element.createElement,be=wp.blockEditor||wp.editor;var Inner=be.InnerBlocks;wp.blocks.registerBlockType('h-b/scheduled-container',{edit:function(){return el('div',null,'Scheduled Container (inline fallback)');},save:function(){return el(Inner.Content,null);}});})(window.wp);";
+        }
 
-	wp_add_inline_script('scb-inline-editor', $js);
-});
+        wp_add_inline_script('scb-inline-editor', $js);
+}
+add_action('enqueue_block_editor_assets', 'scb_enqueue_block_editor_assets');
 
 /* -------------------------------------------------------
  * Core render logic (unchanged)
@@ -144,7 +146,7 @@ function scb_schedule_badge_html( $atts, $is_editor ) {
  * =======================================================*/
 
 /** Settings: add a page under Settings → Scheduled Content. */
-add_action( 'admin_menu', function () {
+function scb_register_settings_page() {
         add_options_page(
                 __( 'Scheduled Content', 'scheduled-content-block' ),
                 __( 'Scheduled Content', 'scheduled-content-block' ),
@@ -152,9 +154,10 @@ add_action( 'admin_menu', function () {
                 'scb-settings',
                 'scb_render_settings_page'
         );
-});
+}
+add_action( 'admin_menu', 'scb_register_settings_page' );
 
-add_action( 'admin_init', function () {
+function scb_register_settings() {
         register_setting( 'scb_settings', 'scb_visibility_roles', array(
                 'type'              => 'array',
                 'sanitize_callback' => 'scb_sanitize_visibility_roles',
@@ -177,17 +180,13 @@ add_action( 'admin_init', function () {
                 add_settings_field(
                         'scb_breeze_enable',
                         __( 'Purge Breeze cache at schedule boundaries', 'scheduled-content-block' ),
-                        function () {
-                                $enabled = (int) get_option( 'scb_breeze_enable', 0 );
-                                echo '<label><input type="checkbox" name="scb_breeze_enable" value="1" ' . checked( 1, $enabled, false ) . ' />';
-                                echo ' ' . esc_html__( 'Enable (purges site cache at each block’s start & end time).', 'scheduled-content-block' ) . '</label>';
-                                echo '<p class="description">' . esc_html__( 'Requires the Breeze plugin. Uses Breeze’s purge-all hook.', 'scheduled-content-block' ) . '</p>';
-                        },
+                        'scb_breeze_enable_field',
                         'scb-settings',
                         'scb_main'
                 );
         }
-});
+}
+add_action( 'admin_init', 'scb_register_settings' );
 
 /** Settings page renderer */
 function scb_render_settings_page() {
@@ -235,6 +234,14 @@ function scb_visibility_roles_field() {
         echo '<p class="description">' . esc_html__( 'Selected roles can view content outside scheduled times.', 'scheduled-content-block' ) . '</p>';
 }
 
+/** Settings field renderer for Breeze cache purge toggle. */
+function scb_breeze_enable_field() {
+        $enabled = (int) get_option( 'scb_breeze_enable', 0 );
+        echo '<label><input type="checkbox" name="scb_breeze_enable" value="1" ' . checked( 1, $enabled, false ) . ' />';
+        echo ' ' . esc_html__( 'Enable (purges site cache at each block’s start & end time).', 'scheduled-content-block' ) . '</label>';
+        echo '<p class="description">' . esc_html__( 'Requires the Breeze plugin. Uses Breeze’s purge-all hook.', 'scheduled-content-block' ) . '</p>';
+}
+
 /** Check if current user is allowed to bypass schedule. */
 function scb_user_can_bypass_schedule() {
         $roles = get_option( 'scb_visibility_roles', scb_visibility_default_roles() );
@@ -250,21 +257,30 @@ function scb_user_can_bypass_schedule() {
         return false;
 }
 
-/** Utility: is Breeze present (and offers the purge hook)? */
+/** Utility: determine if Breeze cache purge facilities are available. */
 function scb_breeze_is_available() {
-	// Breeze exposes an action hook to purge all caches.
-	return (bool) has_action( 'breeze_clear_all_cache' );
+        // Breeze may expose either a direct function or an action hook for purging.
+        return function_exists( 'breeze_clear_all_cache' )
+                || function_exists( 'breeze_cache_flush' )
+                || has_action( 'breeze_clear_all_cache' );
 }
 
 /** Utility: purge Breeze caches (site-wide). */
 function scb_breeze_purge_all() {
-	// Trigger Breeze's purge-all hook (safe no-op if not hooked).
-	// See: do_action('breeze_clear_all_cache') in Breeze docs/support.
-	do_action( 'breeze_clear_all_cache' );
-	// Optional: also try Varnish module if hooked.
-	if ( has_action( 'breeze_clear_varnish' ) ) {
-		do_action( 'breeze_clear_varnish' );
-	}
+        // Prefer direct function calls when available; otherwise fall back to the action hook.
+        if ( function_exists( 'breeze_clear_all_cache' ) ) {
+                breeze_clear_all_cache();
+        } elseif ( function_exists( 'breeze_cache_flush' ) ) {
+                breeze_cache_flush();
+        } else {
+                do_action( 'breeze_clear_all_cache' );
+        }
+        // Optional: also try Varnish module if provided.
+        if ( function_exists( 'breeze_clear_varnish' ) ) {
+                breeze_clear_varnish();
+        } elseif ( has_action( 'breeze_clear_varnish' ) ) {
+                do_action( 'breeze_clear_varnish' );
+        }
 }
 
 /**
@@ -272,70 +288,71 @@ function scb_breeze_purge_all() {
  * at each future boundary (start/end). We store & clean up scheduled events
  * per post so updates don't leave stale cron jobs behind.
  */
-add_action( 'save_post', function ( $post_id, $post, $update ) {
-	if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
-	if ( wp_is_post_revision( $post_id ) || 'trash' === $post->post_status ) return;
+function scb_handle_post_save( $post_id, $post, $update ) {
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+        if ( wp_is_post_revision( $post_id ) || 'trash' === $post->post_status ) return;
 
-	// Only schedule if option enabled and Breeze available.
-	if ( ! ( get_option( 'scb_breeze_enable', 0 ) && scb_breeze_is_available() ) ) {
-		// Clean any events we previously scheduled for this post.
-		scb_breeze_unschedule_for_post( $post_id );
-		return;
-	}
+        // Only schedule if option enabled and Breeze available.
+        if ( ! ( get_option( 'scb_breeze_enable', 0 ) && scb_breeze_is_available() ) ) {
+                // Clean any events we previously scheduled for this post.
+                scb_breeze_unschedule_for_post( $post_id );
+                return;
+        }
 
-	$content = $post->post_content;
-	if ( empty( $content ) ) {
-		scb_breeze_unschedule_for_post( $post_id );
-		return;
-	}
+        $content = $post->post_content;
+        if ( empty( $content ) ) {
+                scb_breeze_unschedule_for_post( $post_id );
+                return;
+        }
 
-	$blocks = function_exists( 'parse_blocks' ) ? parse_blocks( $content ) : array();
-	$boundaries = array(); // [ [ts, 'start'], [ts, 'end'], ... ]
+        $blocks = function_exists( 'parse_blocks' ) ? parse_blocks( $content ) : array();
+        $boundaries = array(); // [ [ts, 'start'], [ts, 'end'], ... ]
 
-	$now = time();
+        $now = time();
 
-	$walk = function( $blocks ) use ( &$walk, &$boundaries, $now ) {
-		foreach ( $blocks as $b ) {
-			if ( empty( $b['blockName'] ) ) continue;
-			if ( $b['blockName'] === 'h-b/scheduled-container' ) {
-				$atts = isset( $b['attrs'] ) ? $b['attrs'] : array();
-				if ( ! empty( $atts['start'] ) ) {
-					$ts = scb_parse_site_ts( $atts['start'] );
-					if ( $ts && $ts > $now ) $boundaries[] = array( $ts, 'start' );
-				}
-				if ( ! empty( $atts['end'] ) ) {
-					$ts = scb_parse_site_ts( $atts['end'] );
-					if ( $ts && $ts > $now ) $boundaries[] = array( $ts, 'end' );
-				}
-			}
-			if ( ! empty( $b['innerBlocks'] ) && is_array( $b['innerBlocks'] ) ) {
-				$walk( $b['innerBlocks'] );
-			}
-		}
-	};
+        $walk = function( $blocks ) use ( &$walk, &$boundaries, $now ) {
+                foreach ( $blocks as $b ) {
+                        if ( empty( $b['blockName'] ) ) continue;
+                        if ( $b['blockName'] === 'h-b/scheduled-container' ) {
+                                $atts = isset( $b['attrs'] ) ? $b['attrs'] : array();
+                                if ( ! empty( $atts['start'] ) ) {
+                                        $ts = scb_parse_site_ts( $atts['start'] );
+                                        if ( $ts && $ts > $now ) $boundaries[] = array( $ts, 'start' );
+                                }
+                                if ( ! empty( $atts['end'] ) ) {
+                                        $ts = scb_parse_site_ts( $atts['end'] );
+                                        if ( $ts && $ts > $now ) $boundaries[] = array( $ts, 'end' );
+                                }
+                        }
+                        if ( ! empty( $b['innerBlocks'] ) && is_array( $b['innerBlocks'] ) ) {
+                                $walk( $b['innerBlocks'] );
+                        }
+                }
+        };
 
-	$walk( $blocks );
+        $walk( $blocks );
 
-	// Clear previously scheduled events for this post.
-	scb_breeze_unschedule_for_post( $post_id );
+        // Clear previously scheduled events for this post.
+        scb_breeze_unschedule_for_post( $post_id );
 
-	// Schedule fresh ones.
-	$scheduled = array();
-	foreach ( $boundaries as $pair ) {
-		list( $ts, $type ) = $pair;
-		if ( ! wp_next_scheduled( 'scb_breeze_cache_purge', array( $post_id, $type, $ts ) ) ) {
-			wp_schedule_single_event( $ts, 'scb_breeze_cache_purge', array( $post_id, $type, $ts ) );
-			$scheduled[] = array( 'ts' => $ts, 'type' => $type );
-		}
-	}
+        // Schedule fresh ones.
+        $scheduled = array();
+        foreach ( $boundaries as $pair ) {
+                list( $ts, $type ) = $pair;
+                if ( ! wp_next_scheduled( 'scb_breeze_cache_purge', array( $post_id, $type, $ts ) ) ) {
+                        wp_schedule_single_event( $ts, 'scb_breeze_cache_purge', array( $post_id, $type, $ts ) );
+                        $scheduled[] = array( 'ts' => $ts, 'type' => $type );
+                }
+        }
 
-	// Persist what we scheduled so we can unschedule on next edit.
-	if ( ! empty( $scheduled ) ) {
-		update_post_meta( $post_id, '_scb_breeze_events', $scheduled );
-	} else {
-		delete_post_meta( $post_id, '_scb_breeze_events' );
-	}
-}, 10, 3 );
+        // Persist what we scheduled so we can unschedule on next edit.
+        if ( ! empty( $scheduled ) ) {
+                update_post_meta( $post_id, '_scb_breeze_events', $scheduled );
+        } else {
+                delete_post_meta( $post_id, '_scb_breeze_events' );
+        }
+}
+add_action( 'save_post', 'scb_handle_post_save', 10, 3 );
 
 /** Unschedule previously registered events for a post (if any). */
 function scb_breeze_unschedule_for_post( $post_id ) {
@@ -356,34 +373,36 @@ function scb_breeze_unschedule_for_post( $post_id ) {
 }
 
 /** Cron callback: purge caches when a boundary is reached. */
-add_action( 'scb_breeze_cache_purge', function ( $post_id, $type, $ts ) {
-	// Double-check option and availability at runtime.
-	if ( get_option( 'scb_breeze_enable', 0 ) && scb_breeze_is_available() ) {
-		scb_breeze_purge_all(); // Purge all Breeze caches.
-	}
-	// Clean the stored event (this exact entry).
-	$events = get_post_meta( $post_id, '_scb_breeze_events', true );
-	if ( $events && is_array( $events ) ) {
-		$events = array_values( array_filter( $events, function( $e ) use ( $ts, $type ) {
-			return ! ( isset( $e['ts'], $e['type'] ) && (int)$e['ts'] === (int)$ts && (string)$e['type'] === (string)$type );
-		} ) );
-		if ( $events ) update_post_meta( $post_id, '_scb_breeze_events', $events );
-		else delete_post_meta( $post_id, '_scb_breeze_events' );
-	}
-}, 10, 3 );
+function scb_breeze_cache_purge_action( $post_id, $type, $ts ) {
+        // Double-check option and availability at runtime.
+        if ( get_option( 'scb_breeze_enable', 0 ) && scb_breeze_is_available() ) {
+                scb_breeze_purge_all(); // Purge all Breeze caches.
+        }
+        // Clean the stored event (this exact entry).
+        $events = get_post_meta( $post_id, '_scb_breeze_events', true );
+        if ( $events && is_array( $events ) ) {
+                $events = array_values( array_filter( $events, function( $e ) use ( $ts, $type ) {
+                        return ! ( isset( $e['ts'], $e['type'] ) && (int)$e['ts'] === (int)$ts && (string)$e['type'] === (string)$type );
+                } ) );
+                if ( $events ) update_post_meta( $post_id, '_scb_breeze_events', $events );
+                else delete_post_meta( $post_id, '_scb_breeze_events' );
+        }
+}
+add_action( 'scb_breeze_cache_purge', 'scb_breeze_cache_purge_action', 10, 3 );
 
 /** Clean up all scheduled events for this plugin on deactivation. */
-register_deactivation_hook( __FILE__, function () {
-	// Brute-force through all posts that might have meta.
-	$q = new WP_Query( array(
-		'post_type'      => 'any',
-		'posts_per_page' => -1,
-		'fields'         => 'ids',
-		'meta_key'       => '_scb_breeze_events',
-	) );
-	if ( $q->have_posts() ) {
-		foreach ( $q->posts as $pid ) {
-			scb_breeze_unschedule_for_post( $pid );
-		}
-	}
-});
+function scb_deactivation_cleanup() {
+        // Brute-force through all posts that might have meta.
+        $q = new WP_Query( array(
+                'post_type'      => 'any',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'meta_key'       => '_scb_breeze_events',
+        ) );
+        if ( $q->have_posts() ) {
+                foreach ( $q->posts as $pid ) {
+                        scb_breeze_unschedule_for_post( $pid );
+                }
+        }
+}
+register_deactivation_hook( __FILE__, 'scb_deactivation_cleanup' );
