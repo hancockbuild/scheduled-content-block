@@ -257,30 +257,21 @@ function scb_user_can_bypass_schedule() {
         return false;
 }
 
-/** Utility: determine if Breeze cache purge facilities are available. */
+/** Utility: is Breeze present (and offers the purge hook)? */
 function scb_breeze_is_available() {
-        // Breeze may expose either a direct function or an action hook for purging.
-        return function_exists( 'breeze_clear_all_cache' )
-                || function_exists( 'breeze_cache_flush' )
-                || has_action( 'breeze_clear_all_cache' );
+	// Breeze exposes an action hook to purge all caches.
+	return (bool) has_action( 'breeze_clear_all_cache' );
 }
 
 /** Utility: purge Breeze caches (site-wide). */
 function scb_breeze_purge_all() {
-        // Prefer direct function calls when available; otherwise fall back to the action hook.
-        if ( function_exists( 'breeze_clear_all_cache' ) ) {
-                breeze_clear_all_cache();
-        } elseif ( function_exists( 'breeze_cache_flush' ) ) {
-                breeze_cache_flush();
-        } else {
-                do_action( 'breeze_clear_all_cache' );
-        }
-        // Optional: also try Varnish module if provided.
-        if ( function_exists( 'breeze_clear_varnish' ) ) {
-                breeze_clear_varnish();
-        } elseif ( has_action( 'breeze_clear_varnish' ) ) {
-                do_action( 'breeze_clear_varnish' );
-        }
+	// Trigger Breeze's purge-all hook (safe no-op if not hooked).
+	// See: do_action('breeze_clear_all_cache') in Breeze docs/support.
+	do_action( 'breeze_clear_all_cache' );
+	// Optional: also try Varnish module if hooked.
+	if ( has_action( 'breeze_clear_varnish' ) ) {
+		do_action( 'breeze_clear_varnish' );
+	}
 }
 
 /**
