@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Scheduled Content Block
  * Description: A simple container block that enables the easy scheduling of content on WordPress pages or posts.
- * Version: 1.01
+ * Version: 1.0.0
  * Requires PHP: 8.2
  * Author: h.b Plugins
  * Author URI: https://hancock.build
@@ -259,30 +259,25 @@ function scb_user_can_bypass_schedule() {
 
 /** Utility: determine if Breeze cache purge facilities are available. */
 function scb_breeze_is_available() {
-        // Breeze may expose direct functions, a static class method or an action hook.
+        // Breeze may expose either a direct function or an action hook for purging.
         return function_exists( 'breeze_clear_all_cache' )
                 || function_exists( 'breeze_cache_flush' )
-                || ( class_exists( 'Breeze_PurgeCache' ) && method_exists( 'Breeze_PurgeCache', 'breeze_cache_flush' ) )
                 || has_action( 'breeze_clear_all_cache' );
 }
 
 /** Utility: purge Breeze caches (site-wide). */
 function scb_breeze_purge_all() {
-        // Prefer direct function calls when available; otherwise fall back to class methods or action hooks.
+        // Prefer direct function calls when available; otherwise fall back to the action hook.
         if ( function_exists( 'breeze_clear_all_cache' ) ) {
                 breeze_clear_all_cache();
         } elseif ( function_exists( 'breeze_cache_flush' ) ) {
                 breeze_cache_flush();
-        } elseif ( class_exists( 'Breeze_PurgeCache' ) && method_exists( 'Breeze_PurgeCache', 'breeze_cache_flush' ) ) {
-                Breeze_PurgeCache::breeze_cache_flush();
         } else {
                 do_action( 'breeze_clear_all_cache' );
         }
         // Optional: also try Varnish module if provided.
         if ( function_exists( 'breeze_clear_varnish' ) ) {
                 breeze_clear_varnish();
-        } elseif ( class_exists( 'Breeze_PurgeCache' ) && method_exists( 'Breeze_PurgeCache', 'breeze_clear_varnish' ) ) {
-                Breeze_PurgeCache::breeze_clear_varnish();
         } elseif ( has_action( 'breeze_clear_varnish' ) ) {
                 do_action( 'breeze_clear_varnish' );
         }
